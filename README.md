@@ -20,16 +20,16 @@ v1 is intentionally scoped below full docker-compose parity — see `obsidian/ws
 Tagged releases (`v*.*.*`) publish a self-contained, single-file `win-x64` build — no separate .NET runtime install required, just the WSL container feature.
 
 1. Download `wsl-compose-<version>-win-x64.zip` from the [Releases page](https://github.com/Vatthanachai/wsl-container-compose/releases).
-2. Extract it anywhere.
-3. Run `WslContainerCompose.Cli.exe` directly:
+2. Extract it somewhere permanent and add that folder to your `PATH` (once).
+3. Run `wsl-compose` from anywhere:
 
 ```powershell
-.\WslContainerCompose.Cli.exe up
-.\WslContainerCompose.Cli.exe ps
-.\WslContainerCompose.Cli.exe down
+wsl-compose up
+wsl-compose ps
+wsl-compose down
 ```
 
-All commands and options below work identically — just replace `dotnet run --project src/WslContainerCompose.Cli --` with `.\WslContainerCompose.Cli.exe`.
+All commands and options below work identically — just replace `dotnet run --project src/WslContainerCompose.Cli --` with `wsl-compose`.
 
 > Not currently distributed as a `dotnet tool` (`dotnet tool install -g`) — `PackAsTool` doesn't support the Windows-specific target framework this project requires, so the zip above is the only packaged distribution for now.
 

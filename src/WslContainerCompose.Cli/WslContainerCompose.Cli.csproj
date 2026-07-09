@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>WslContainerCompose.Cli</RootNamespace>
+    <AssemblyName>wsl-compose</AssemblyName>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>wsl-compose</ToolCommandName>
     <PackageOutputPath>./nupkg</PackageOutputPath>

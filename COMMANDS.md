@@ -32,6 +32,8 @@ dotnet publish src/WslContainerCompose.Cli/WslContainerCompose.Cli.csproj `
   --output ./artifacts/publish/win-x64
 ```
 
+Produces `wsl-compose.exe` (set via `<AssemblyName>` in the `.csproj`, matching the `ToolCommandName` already declared there) - not `WslContainerCompose.Cli.exe`.
+
 `dotnet pack` on this project **fails** (`NETSDK1146`) — `PackAsTool` doesn't support the Windows-specific TFM. Don't use pack for distribution; the publish command above is the only working path.
 
 ## Coverage
