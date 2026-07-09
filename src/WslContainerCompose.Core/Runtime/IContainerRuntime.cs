@@ -23,5 +23,18 @@ public interface IContainerRuntime
 
     Task<ContainerStatus> GetContainerStatusAsync(string sessionId, string containerId, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Returns the container's current IP address, or null if it can't be determined.
+    /// Used to wire up service-name discovery via generated `/etc/hosts` entries -
+    /// see Plan.md "Networks (provisional)".
+    /// </summary>
+    Task<string?> GetContainerIpAddressAsync(string sessionId, string containerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Writes `/etc/hosts` entries into the container mapping each given service name to its IP,
+    /// replacing any entries from a previous call. See Plan.md "Networks (provisional)".
+    /// </summary>
+    Task WriteHostsEntriesAsync(string sessionId, string containerId, IReadOnlyDictionary<string, string> hostnameToIp, CancellationToken cancellationToken = default);
+
     Task TerminateSessionAsync(string sessionId, CancellationToken cancellationToken = default);
 }

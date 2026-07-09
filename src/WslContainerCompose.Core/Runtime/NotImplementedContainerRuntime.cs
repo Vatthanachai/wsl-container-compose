@@ -25,5 +25,9 @@ public sealed class NotImplementedContainerRuntime : IContainerRuntime
 
     public Task<ContainerStatus> GetContainerStatusAsync(string sessionId, string containerId, CancellationToken cancellationToken = default) => throw NotYet();
 
+    public Task<string?> GetContainerIpAddressAsync(string sessionId, string containerId, CancellationToken cancellationToken = default) => throw NotYet();
+
+    public Task WriteHostsEntriesAsync(string sessionId, string containerId, IReadOnlyDictionary<string, string> hostnameToIp, CancellationToken cancellationToken = default) => throw NotYet();
+
     public Task TerminateSessionAsync(string sessionId, CancellationToken cancellationToken = default) => throw NotYet();
 }

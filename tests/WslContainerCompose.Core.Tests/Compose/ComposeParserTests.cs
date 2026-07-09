@@ -97,6 +97,116 @@ public class ComposeParserTests
     }
 
     [Fact]
+    public void Parses_service_networks_list_form()
+    {
+        const string yaml = """
+            networks:
+              frontend: {}
+              backend: {}
+            services:
+              web:
+                image: nginx
+                networks:
+                  - frontend
+              api:
+                image: my-api
+                networks:
+                  - frontend
+                  - backend
+            """;
+
+        var composeFile = ComposeParser.Parse(yaml, "myproj");
+
+        Assert.Equal(new HashSet<string> { "frontend", "backend" }, composeFile.Networks);
+        Assert.Equal(["frontend"], composeFile.Services["web"].Networks);
+        Assert.Equal(["frontend", "backend"], composeFile.Services["api"].Networks);
+    }
+
+    [Fact]
+    public void Parses_service_networks_map_form()
+    {
+        const string yaml = """
+            networks:
+              frontend: {}
+            services:
+              web:
+                image: nginx
+                networks:
+                  frontend: {}
+            """;
+
+        var composeFile = ComposeParser.Parse(yaml, "myproj");
+
+        Assert.Equal(["frontend"], composeFile.Services["web"].Networks);
+    }
+
+    [Fact]
+    public void Service_with_no_networks_key_has_no_declared_networks()
+    {
+        const string yaml = """
+            services:
+              web:
+                image: nginx
+            """;
+
+        var composeFile = ComposeParser.Parse(yaml, "myproj");
+
+        Assert.Empty(composeFile.Services["web"].Networks);
+    }
+
+    [Fact]
+    public void Rejects_service_network_not_declared_at_top_level()
+    {
+        const string yaml = """
+            services:
+              web:
+                image: nginx
+                networks:
+                  - frontend
+            """;
+
+        var ex = Assert.Throws<ComposeParseException>(() => ComposeParser.Parse(yaml, "myproj"));
+        Assert.Contains("not declared", ex.Message);
+    }
+
+    [Fact]
+    public void Rejects_top_level_network_with_driver_option()
+    {
+        const string yaml = """
+            networks:
+              frontend:
+                driver: overlay
+            services:
+              web:
+                image: nginx
+                networks:
+                  - frontend
+            """;
+
+        var ex = Assert.Throws<ComposeParseException>(() => ComposeParser.Parse(yaml, "myproj"));
+        Assert.Contains("driver", ex.Message);
+    }
+
+    [Fact]
+    public void Rejects_service_network_alias()
+    {
+        const string yaml = """
+            networks:
+              frontend: {}
+            services:
+              web:
+                image: nginx
+                networks:
+                  frontend:
+                    aliases:
+                      - web-alias
+            """;
+
+        var ex = Assert.Throws<ComposeParseException>(() => ComposeParser.Parse(yaml, "myproj"));
+        Assert.Contains("aliases", ex.Message);
+    }
+
+    [Fact]
     public void Interpolates_variables_with_defaults()
     {
         const string yaml = """

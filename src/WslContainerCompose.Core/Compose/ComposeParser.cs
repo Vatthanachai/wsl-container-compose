@@ -27,17 +27,42 @@ public static class ComposeParser
             throw new ComposeParseException("Compose file has no 'services:' section.");
         }
 
+        var declaredNetworks = ParseTopLevelNetworks(GetValue(root, "networks"));
+
         var services = new Dictionary<string, ServiceDefinition>();
         foreach (var (key, value) in rawServices)
         {
             var name = key.ToString()!;
-            services[name] = ParseService(name, value as Dictionary<object, object?> ?? []);
+            services[name] = ParseService(name, value as Dictionary<object, object?> ?? [], declaredNetworks);
         }
 
-        return new ComposeFile { ProjectName = projectName, Services = services };
+        return new ComposeFile { ProjectName = projectName, Services = services, Networks = declaredNetworks };
     }
 
-    private static ServiceDefinition ParseService(string name, Dictionary<object, object?> raw)
+    private static IReadOnlySet<string> ParseTopLevelNetworks(object? raw)
+    {
+        if (raw is not Dictionary<object, object?> map)
+        {
+            return new HashSet<string>();
+        }
+
+        var names = new HashSet<string>();
+        foreach (var (key, value) in map)
+        {
+            var name = key.ToString()!;
+            if (value is Dictionary<object, object?> { Count: > 0 } options)
+            {
+                throw new ComposeParseException(
+                    $"Network '{name}' specifies options ({string.Join(", ", options.Keys)}), which are not supported yet - only bare network names are supported.");
+            }
+
+            names.Add(name);
+        }
+
+        return names;
+    }
+
+    private static ServiceDefinition ParseService(string name, Dictionary<object, object?> raw, IReadOnlySet<string> declaredNetworks)
     {
         if (raw.ContainsKey("build"))
         {
@@ -59,6 +84,7 @@ public static class ComposeParser
             Volumes = ParseVolumes(name, GetValue(raw, "volumes")),
             Environment = ParseEnvironment(GetValue(raw, "environment")),
             DependsOn = ParseDependsOn(GetValue(raw, "depends_on")),
+            Networks = ParseServiceNetworks(name, GetValue(raw, "networks"), declaredNetworks),
         };
     }
 
@@ -160,4 +186,44 @@ public static class ComposeParser
         Dictionary<object, object?> map => [.. map.Keys.Select(key => key.ToString()!)],
         _ => throw new ComposeParseException("'depends_on:' must be a list or a map."),
     };
+
+    private static IReadOnlyList<string> ParseServiceNetworks(string serviceName, object? raw, IReadOnlySet<string> declaredNetworks)
+    {
+        IReadOnlyList<string> names = raw switch
+        {
+            null => [],
+            List<object?> list => [.. list.Select(item => item?.ToString() ?? throw new ComposeParseException($"Service '{serviceName}' has an empty network entry."))],
+            Dictionary<object, object?> map => ParseServiceNetworksMap(serviceName, map),
+            _ => throw new ComposeParseException("'networks:' must be a list or a map."),
+        };
+
+        foreach (var networkName in names)
+        {
+            if (!declaredNetworks.Contains(networkName))
+            {
+                throw new ComposeParseException(
+                    $"Service '{serviceName}' references network '{networkName}', which is not declared in the top-level 'networks:' block.");
+            }
+        }
+
+        return names;
+    }
+
+    private static IReadOnlyList<string> ParseServiceNetworksMap(string serviceName, Dictionary<object, object?> map)
+    {
+        var names = new List<string>();
+        foreach (var (key, value) in map)
+        {
+            var networkName = key.ToString()!;
+            if (value is Dictionary<object, object?> { Count: > 0 } options)
+            {
+                throw new ComposeParseException(
+                    $"Service '{serviceName}' network '{networkName}' specifies options ({string.Join(", ", options.Keys)}), which are not supported yet - only network membership is supported.");
+            }
+
+            names.Add(networkName);
+        }
+
+        return names;
+    }
 }
