@@ -6,9 +6,9 @@ A docker-compose / podman-compose equivalent for Windows, built in C# .NET 10. I
 
 ## What it does
 
-Point it at a `docker-compose.yml` and it drives the [WSL container API](https://learn.microsoft.com/en-us/windows/wsl/wsl-container?tabs=csharp) to create a `Session` and start/stop the described services as real containers, respecting `depends_on` ordering, `ports`, environment variables, and bind-mount `volumes`.
+Point it at a `docker-compose.yml` and it drives the [WSL container API](https://learn.microsoft.com/en-us/windows/wsl/wsl-container?tabs=csharp) to create a `Session` and start/stop the described services as real containers, respecting `depends_on` ordering, `ports`, environment variables, bind-mount `volumes`, and `networks:` for service-name discovery.
 
-v1 is intentionally scoped below full docker-compose parity — see `obsidian/wsl-container-compose/Plan.md` for the full list of what's supported and what's explicitly deferred (`build:`, custom networks, named volumes, `exec`/`pull`/`config`/`top`).
+v1 is intentionally scoped below full docker-compose parity — see `obsidian/wsl-container-compose/Plan.md` for the full list of what's supported and what's explicitly deferred (`build:`, named volumes, `exec`/`pull`/`config`/`top`).
 
 ## Prerequisites
 
@@ -78,8 +78,9 @@ v1 parses a subset of the Compose Specification. Per service:
 - `volumes:` — bind mounts only (`./host/path:/container/path`); named volumes are rejected
 - `environment:` — list (`KEY=value`) or map form
 - `depends_on:` — list or map form; only start ordering is honored, not health conditions
+- `networks:` — list or bare map form; see [Networks](#networks) below
 
-Top-level named `volumes:` and `networks:` are not supported. A `.env` file next to the compose file is loaded automatically for variable interpolation (`${VAR}`).
+Top-level named `volumes:` are not supported. A `.env` file next to the compose file is loaded automatically for variable interpolation (`${VAR}`).
 
 ```yaml
 services:
@@ -102,6 +103,46 @@ services:
 
 State (container IDs, service status) is tracked per-project in a `.wsl-compose/` directory next to the compose file.
 
+### Networks
+
+> **Provisional:** this hasn't been validated against a real WSL install yet (the real container adapter isn't written — see the status note at the top of this file). See `obsidian/wsl-container-compose/Plan.md` ("Networks (provisional)") for the full design and its unconfirmed assumptions.
+
+Services can reach each other by compose service name. A service with no `networks:` key joins an implicit shared `default` network with every other network-less service — this matches real docker-compose and is a superset of always-worked behavior, so a plain compose file with no `networks:` section at all needs no changes.
+
+To scope which services can resolve which others, declare networks explicitly:
+
+```yaml
+networks:
+  frontend: {}
+  backend: {}
+
+services:
+  web:
+    image: nginx:alpine
+    networks:
+      - frontend
+
+  api:
+    image: myapi:latest
+    networks:
+      - frontend
+      - backend
+
+  db:
+    image: postgres:16
+    networks:
+      - backend
+```
+
+Here `web` can resolve `api` but not `db`; `api` can resolve both; a service given explicit `networks:` no longer gets the implicit `default` network.
+
+**Important limitation:** network membership only controls which peers appear in a container's resolvable hostnames (via generated `/etc/hosts` entries) — it is **not** enforced network isolation. Any container can still reach any other directly by IP, regardless of `networks:` membership, because the underlying WSL container API has no concept of isolated network groups.
+
+**Not supported** (fails to parse with a clear error rather than being silently ignored):
+- Referencing a network in a service that isn't declared in the top-level `networks:` block.
+- `driver:`/`external:` options on a top-level network entry.
+- `aliases:` on a service's network entry.
+
 ## Documentation
 
 Full design decisions, project structure, progress log, and how-to guides live in the project's Obsidian vault at `obsidian/wsl-container-compose/`. Start at `Index.md`.
@@ -114,7 +155,7 @@ src/
 └── WslContainerCompose.Core/   # compose parsing + orchestration (net10.0-windows10.0.19041.0)
 
 tests/
-└── WslContainerCompose.Core.Tests/   # 15 unit tests, all against a fake IContainerRuntime
+└── WslContainerCompose.Core.Tests/   # 30 unit tests, all against a fake IContainerRuntime
 ```
 
 ## Building and testing
