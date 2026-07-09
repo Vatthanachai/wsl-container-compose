@@ -34,9 +34,17 @@ dotnet publish src/WslContainerCompose.Cli/WslContainerCompose.Cli.csproj `
 
 `dotnet pack` on this project **fails** (`NETSDK1146`) — `PackAsTool` doesn't support the Windows-specific TFM. Don't use pack for distribution; the publish command above is the only working path.
 
+## Coverage
+
+```powershell
+dotnet test --collect:"XPlat Code Coverage" --results-directory ./coverage
+```
+
+Produces a Cobertura report per test project under `./coverage/`. CI renders this into a job summary + HTML artifact (`coverage-report`) via `danielpalme/ReportGenerator-GitHub-Action`; to do the same locally, install `dotnet tool install --global dotnet-reportgenerator-globaltool` then run `reportgenerator "-reports:./coverage/**/coverage.cobertura.xml" "-targetdir:./coverage/report" "-reporttypes:Html"`.
+
 ## Releasing
 
-- Push to a `release-*` branch → build+test only (validation).
+- Push to a `release-*` branch → build+test (with coverage) only (validation).
 - Push a tag matching `v[0-9]+.[0-9]+.[0-9]+` (e.g. `v0.1.0`) → build+test, then publish a `win-x64` zip and create a GitHub Release. See `.github/workflows/release.yml`.
 - Tag format matters: `v.0.1.0` (stray dot) is invalid and will break the version-parsing step — use `v0.1.0`.
 
