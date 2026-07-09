@@ -69,7 +69,69 @@ public sealed class ComposeProject(ComposeFile composeFile, IContainerRuntime ru
             }
         }
 
+        failures.AddRange(await WireNetworksAsync(sessionId, containerIds, cancellationToken));
+
         return new UpResult(containerIds, failures);
+    }
+
+    /// <summary>
+    /// Second phase of `up` (and re-run after `start`/`restart`, since IPs can change): once every
+    /// container in <paramref name="containerIds"/> is running, fetch each one's IP and write each
+    /// container's network peers into its `/etc/hosts`. See Plan.md "Networks (provisional)".
+    /// Failures here are soft - the container that failed to be wired stays running and the
+    /// failure is reported the same way as any other `up` failure, matching "Failure handling"
+    /// in Plan.md.
+    /// </summary>
+    private async Task<List<(string Service, Exception Error)>> WireNetworksAsync(
+        string sessionId, IReadOnlyDictionary<string, string> containerIds, CancellationToken cancellationToken)
+    {
+        var failures = new List<(string Service, Exception Error)>();
+        var peers = NetworkTopology.ResolvePeers(NetworkTopology.ResolveMembership(composeFile.Services));
+
+        var ipsByService = new Dictionary<string, string>();
+        foreach (var (serviceName, containerId) in containerIds)
+        {
+            try
+            {
+                var ip = await runtime.GetContainerIpAddressAsync(sessionId, containerId, cancellationToken);
+                if (ip is not null)
+                {
+                    ipsByService[serviceName] = ip;
+                }
+            }
+            catch (Exception ex)
+            {
+                failures.Add((serviceName, ex));
+            }
+        }
+
+        foreach (var (serviceName, containerId) in containerIds)
+        {
+            if (!peers.TryGetValue(serviceName, out var peerNames) || peerNames.Count == 0)
+            {
+                continue;
+            }
+
+            var hostnameToIp = peerNames
+                .Where(ipsByService.ContainsKey)
+                .ToDictionary(peer => peer, peer => ipsByService[peer]);
+
+            if (hostnameToIp.Count == 0)
+            {
+                continue;
+            }
+
+            try
+            {
+                await runtime.WriteHostsEntriesAsync(sessionId, containerId, hostnameToIp, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                failures.Add((serviceName, ex));
+            }
+        }
+
+        return failures;
     }
 
     public async Task DownAsync(CancellationToken cancellationToken = default)
@@ -141,6 +203,8 @@ public sealed class ComposeProject(ComposeFile composeFile, IContainerRuntime ru
                 await runtime.StartContainerAsync(state.SessionId, containerId, cancellationToken);
             }
         }
+
+        await WireNetworksAsync(state.SessionId, state.ContainerIdsByService, cancellationToken);
     }
 
     public async Task RestartAsync(CancellationToken cancellationToken = default)

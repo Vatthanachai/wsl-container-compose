@@ -4,4 +4,5 @@ public sealed class ComposeFile
 {
     public required string ProjectName { get; init; }
     public required IReadOnlyDictionary<string, ServiceDefinition> Services { get; init; }
+    public IReadOnlySet<string> Networks { get; init; } = new HashSet<string>();
 }

@@ -13,4 +13,5 @@ public sealed class ServiceDefinition
     public IReadOnlyList<BindMount> Volumes { get; init; } = [];
     public IReadOnlyDictionary<string, string> Environment { get; init; } = new Dictionary<string, string>();
     public IReadOnlyList<string> DependsOn { get; init; } = [];
+    public IReadOnlyList<string> Networks { get; init; } = [];
 }
