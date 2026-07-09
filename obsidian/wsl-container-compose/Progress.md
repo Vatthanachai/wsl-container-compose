@@ -2,6 +2,12 @@
 
 Living status log. Add a new entry at the top each time meaningful progress happens; don't rewrite history.
 
+## 2026-07-09 — Networks design finalized (provisional)
+
+- Ran a grilling session to design `networks:` support, previously deferred pending a spike. Pulled real facts from the [API reference](https://wsl.dev/api-reference/) instead of guessing: `ContainerNetworkingMode` only has `None`/`Bridged` (no per-network isolation at the platform level), and `Container` has no IP-address property (only an undocumented `Inspect()` payload as a lead). Full design captured in [[Plan#Networks (provisional)]] — marked provisional since it hasn't been validated against a real WSL install.
+- Key calls: service-name discovery via generated `/etc/hosts` entries (not a custom DNS server); network isolation is logical-only (hosts-file scoping), not platform-enforced; implicit default network for services with no `networks:` key; strict validation matching the parser's existing fail-loud style; two-phase `up` (create+start as today, then a new network-wiring pass over the whole batch); wiring failures are soft failures reported in `UpResult.Failures`, same as any other `up` failure.
+- **Re-sequenced "Next up":** networks work now comes before the real `IContainerRuntime` adapter, built and tested against `FakeContainerRuntime` first — same test-first pattern as everything else in this codebase.
+
 ## 2026-07-09 — Solution scaffolded, builds and tests pass
 
 - Added `WslContainerCompose.Core`, `WslContainerCompose.Cli`, and `WslContainerCompose.Core.Tests` to `WSL-Container-Compose.slnx` (`dotnet sln add` works directly on `.slnx`). Both `Core` and `Cli` target `net10.0-windows10.0.19041.0` (confirmed required — `Microsoft.WSL.Containers` 2.9.3's nuspec declares `net8.0-windows10.0.19041` as its TFM).
@@ -20,7 +26,8 @@ Living status log. Add a new entry at the top each time meaningful progress happ
 
 ## Next up
 
-- Implement the real `IContainerRuntime` adapter over `Microsoft.WSL.Containers`' `Session`/`Container`/`Process`, and swap it in for `NotImplementedContainerRuntime` in `Cli`'s `LoadProject`.
+- Implement `networks:` support per [[Plan#Networks (provisional)]]: compose model + parser changes (service-level and top-level `networks:`), `IContainerRuntime.GetContainerIpAddressAsync`/`WriteHostsEntriesAsync`, the two-phase `up` wiring pass, and unit tests against `FakeContainerRuntime`.
+- Implement the real `IContainerRuntime` adapter over `Microsoft.WSL.Containers`' `Session`/`Container`/`Process`, and swap it in for `NotImplementedContainerRuntime` in `Cli`'s `LoadProject`. This is also when the networks design's provisional assumptions (`Inspect()` IP parsing, shell-based `/etc/hosts` exec) get confirmed or revised.
 - Verify end-to-end against a real WSL container feature install (everything so far has only been verified with the fake runtime).
 - Consider friendlier CLI error output instead of a raw stack trace when orchestration throws.
 
