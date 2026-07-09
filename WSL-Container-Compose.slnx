@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WslContainerCompose.Cli/WslContainerCompose.Cli.csproj" />
+    <Project Path="src/WslContainerCompose.Core/WslContainerCompose.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WslContainerCompose.Core.Tests/WslContainerCompose.Core.Tests.csproj" />
+  </Folder>
+</Solution>
